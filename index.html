@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Orca HomeKit Camera Server</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="icon.png">
+        <style>
+            :root {
+                color-scheme: light dark;
+                --card-background-color: #f5f5f5;
+                --border-color: #cccccc;
+            }
+            @media screen and (prefers-color-scheme: dark) {
+                :root {
+                    --card-background-color: #5f5f5f;
+                    --border-color: #666666;
+                }
+            }
+            body {
+                font-family: system-ui, Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+            }
+            h1, h2, .footer {
+                text-align: center;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+            .header img {
+                display: block;
+                margin: 0 auto 10px;
+                max-width: 100px;
+                height: auto;
+                border-radius: 30px;
+            }
+            .card {
+                background: var(--card-background-color);
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .button {
+                background: #0078d7;
+                color: #ffffff;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                margin-right: 5px;
+            }
+            .button.stop { background: #d32f2f; }
+            .button.reset { background: #ff9800; }
+            .button.save { background: #4caf50; }
+            .button.reload { background: #9c27b0; }
+            .status {
+                font-size: 18px;
+                margin-bottom: 10px;
+            }
+            textarea {
+                width: 100%;
+                height: 300px;
+                font-family: monospace;
+                padding: 10px;
+                margin: 0 -10px;
+                border-radius: 4px;
+                border: 1px solid var(--border-color);
+            }
+            .logs {
+                height: 300px;
+                overflow-y: auto;
+                background: #333333;
+                color: #f5f5f5;
+                padding: 10px;
+                border-radius: 4px;
+                font-family: monospace;
+            }
+            .message { color: #007f00; margin-top: 10px; display: none; }
+            .error { color: #ff0000; margin-top: 10px; display: none; }
+        </style>
+        <script>
+            document.onreadystatechange = () => {
+                if (document.readyState === 'complete') {
+                    const statusEl = document.getElementById("server-status");
+                    const pairText = document.getElementById("pair-message");
+                    const pinEl = document.getElementById("pin-code");
+                    const setupEl = document.getElementById("setup-uri");
+                    const qrImg = document.getElementById("qr-img");
+                    const cfgEd = document.getElementById("config-editor");
+                    const msgEl = document.getElementById("msg");
+                    const errEl = document.getElementById("err");
+                    const logsEl = document.getElementById("logs");
+                    const yearEl = document.getElementById("year");
+
+                    // Utility to GET JSON
+                    async function getJSON(path) {
+                        const r = await fetch(path);
+                        if (!r.ok) throw new Error(r.statusText);
+                        return r.json();
+                    }
+                    // Utility to POST JSON
+                    async function postJSON(path, body = undefined) {
+                        const opts = { method: "POST", headers: { "Content-Type": "application/json" } };
+                        if (body !== undefined) opts.body = JSON.stringify(body);
+                        const r = await fetch(path, opts);
+                        const json = await r.json();
+                        if (!r.ok || !json.success) throw new Error(json.message || r.statusText);
+                        return json;
+                    }
+                    // Refresh the entire UI state
+                    async function refreshUI() {
+                        try {
+                            const { isRunning, pinCode, setupURI, qrData, config } = await getJSON('status');
+                            statusEl.textContent = isRunning ? "Running" : "Stopped";
+                            document.getElementById("btn-start").disabled = isRunning;
+                            document.getElementById("btn-stop").disabled = !isRunning;
+                            document.getElementById("pairing-card").style.display = isRunning ? "block" : "none";
+                            if (isRunning) {
+                                pairText.textContent = "Scan the QR code with the Apple Home app or manually enter the setup code.";
+                                pinEl.textContent = pinCode;
+                                setupEl.textContent = setupURI;
+                                qrImg.src = qrData;
+                            }
+                            cfgEd.value = JSON.stringify(config, null, 2);
+                        } catch (err) {
+                            console.error(err);
+                            statusEl.textContent = "Error";
+                        }
+                    }
+                    // Button wiring
+                    document.getElementById("btn-start").onclick = () => postJSON('start').then(refreshUI);
+                    document.getElementById("btn-stop").onclick = () => postJSON('stop').then(refreshUI);
+                    document.getElementById("btn-reset").onclick = () => postJSON('reset').then(refreshUI);
+                    document.getElementById("btn-save").onclick = async () => {
+                        try {
+                            const cfg = JSON.parse(cfgEd.value);
+                            await postJSON('save-config', cfg);
+                            msgEl.textContent = "Saved!";
+                            msgEl.style.display = "block";
+                            setTimeout(() => (msgEl.style.display = "none"), 2000);
+                        } catch (e) {
+                            errEl.textContent = e.message;
+                            errEl.style.display = "block";
+                            setTimeout(() => (errEl.style.display = "none"), 2000);
+                        }
+                    };
+                    document.getElementById("btn-reload").onclick = async () => {
+                        try {
+                            const { config } = await getJSON('reload-config');
+                            cfgEd.value = JSON.stringify(config, null, 2);
+                            msgEl.textContent = "Reloaded!";
+                            msgEl.style.display = "block";
+                            setTimeout(() => (msgEl.style.display = "none"), 2000);
+                        } catch (e) {
+                            errEl.textContent = e.message;
+                            errEl.style.display = "block";
+                            setTimeout(() => (errEl.style.display = "none"), 2000);
+                        }
+                    };
+                    document.getElementById("btn-apply").onclick = async () => {
+                        document.getElementById("btn-save").click();
+                        if (statusEl.textContent === "Running") {
+                            await postJSON('stop');
+                            await postJSON('start');
+                        }
+                        refreshUI();
+                    };
+                    // WebSocket log stream
+                    function connectWS() {
+                        const wsUrl = new URL('ws/logs', location.href);
+                        wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                        const ws = new WebSocket(wsUrl.href);
+                        ws.onmessage = (e) => {
+                            const { data, type } = JSON.parse(e.data);
+                            if (type === "log") {
+                                const div = document.createElement("div");
+                                div.textContent = data.timestamp + " " + data.level + ": " + data.message;
+                                logsEl.appendChild(div);
+                                logsEl.scrollTop = logsEl.scrollHeight;
+                            }
+                        };
+                        ws.onclose = () => setTimeout(connectWS, 2000);
+                    }
+                    refreshUI();
+                    connectWS();
+                    yearEl.textContent = new Date().getFullYear();
+                }
+            };
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <img src="icon.png" alt="Orca Icon" />
+                <h1>Orca</h1>
+                <h1>HomeKit Camera Server</h1>
+            </div>
+            <!-- Status Section -->
+            <div class="card">
+                <div class="status">Status: <strong id="server-status">…</strong></div>
+                <button class="button" id="btn-start">Start</button>
+                <button class="button stop" id="btn-stop">Stop</button>
+                <button class="button reset" id="btn-reset">Reset Pairing</button>
+            </div>
+            <!-- Pairing Section -->
+            <div class="card" id="pairing-card">
+                <h2>Pairing Information</h2>
+                <p id="pair-message">Start the server to begin pairing.</p>
+                <p><strong>Pairing Code:</strong> <code id="pin-code">…</code></p>
+                <p><strong>Setup URI:</strong> <code id="setup-uri">…</code></p>
+                <div class="qr-code"><img id="qr-img" src="" alt="QR Code" /></div>
+            </div>
+            <!-- Config Section -->
+            <div class="card">
+                <h2>Configuration</h2>
+                <textarea id="config-editor">…</textarea>
+                <div style="margin-top: 10px">
+                    <button class="button save" id="btn-save">Save</button>
+                    <button class="button reload" id="btn-reload">Reload</button>
+                    <button class="button" id="btn-apply">Apply</button>
+                </div>
+                <div id="msg" class="message"></div>
+                <div id="err" class="error"></div>
+            </div>
+            <!-- Logs Section -->
+            <div class="card">
+                <h2>Live Logs</h2>
+                <div id="logs" class="logs">Connecting…</div>
+            </div>
+        </div>
+        <div class="footer">© Copyright Sl’s Repository Ltd, <span id="year">2025</span>. All Rights Reserved.</div>
+    </body>
+</html>

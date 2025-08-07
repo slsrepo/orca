@@ -1,0 +1,83 @@
+{
+  "bridge": {
+    "name": "Orca Camera Bridge",
+    "username": "3E:CA:00:1F:16:9D",
+    "pin": "031-45-154",
+    "manufacturer": "Sl's Repository Ltd",
+    "model": "Multi-Camera Bridge",
+    "serialNumber": "SL-ORCA-BRIDGE-001",
+    "firmwareRevision": "1.0.0",
+    "setupID": "ORCA"
+  },
+  "cameras": [
+    {
+      "name": "Camera",
+      "manufacturer": "Orca FFmpeg Camera",
+      "model": "HLS Stream",
+      "serialNumber": "SL-ORCA-CAMERA-001",
+      "firmwareRevision": "1.0.0",
+      "enableAudio": false,
+      "videoConfig": {
+        "source": "-i http://192.168.1.50:8000/stream.m3u8",
+        "inputOptions": "-f hls",
+        "maxWidth": 1280,
+        "maxHeight": 720,
+        "maxFPS": 30,
+        "maxBitrate": 600,
+        "maxStreams": 2,
+        "ffmpegPath": "ffmpeg",
+        "debug": true,
+        "resolutions": [
+          [
+            320,
+            180,
+            30
+          ],
+          [
+            320,
+            240,
+            15
+          ],
+          [
+            320,
+            240,
+            30
+          ],
+          [
+            480,
+            270,
+            30
+          ],
+          [
+            480,
+            360,
+            30
+          ],
+          [
+            640,
+            360,
+            30
+          ],
+          [
+            640,
+            480,
+            30
+          ],
+          [
+            1280,
+            720,
+            30
+          ],
+          [
+            1920,
+            1080,
+            30
+          ]
+        ]
+      }
+    }
+  ],
+  "webPort": 8765,
+  "hapPort": 51827,
+  "debug": true
+}

@@ -1,0 +1,28 @@
+name: Orca Camera Server
+version: "1.0.0"
+slug: orca_camera_server
+description: "Orca HomeKit Camera Server Add-on"
+arch:
+  - amd64
+  - armv7
+  - armhf
+  - aarch64
+  - i386
+startup: services
+boot: auto
+host_network: true
+ports:
+  8765/tcp: 8765
+  51827/tcp: 51827
+ports_description:
+  "8765/tcp": "Web UI (QR code, config editor, and logs)"
+  "51827/tcp": "HomeKit Accessory Protocol Port"
+webui: "http://[HOST]:[PORT:8765]"
+ingress: true
+ingress_port: 8765
+panel_title: "Orca"
+panel_icon: "mdi:dolphin"
+options:
+  config: "{}"
+schema:
+  config: str
